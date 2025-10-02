@@ -16,7 +16,6 @@ from language_filter import (
     filter_idioms,
     filter_min_word_count
 )
-from parenting_filter import filter_parenting_content
 from anonymization import anonymize_reddit_data
 
 def main():
@@ -75,9 +74,6 @@ def main():
     submissions_df = filter_non_english(submissions_df, text_column='selftext')
     submissions_df = filter_non_english(submissions_df, text_column='title')
 
-    # 8. Leave parenting-related comments and posts
-    submissions_df = filter_parenting_content(submissions_df, text_column='selftext')
-
     print(f"Final submissions count after filtering: {len(submissions_df)}")
 
     print("\nApplying filters to comments...")
@@ -109,9 +105,6 @@ def main():
 
     # 9. Only English text
     comments_df = filter_non_english(comments_df, text_column='body')
-
-    # 10. Leave parenting-related comments and posts
-    comments_df = filter_parenting_content(comments_df, text_column='body')
 
     print(f"Final comments count after filtering: {len(comments_df)}")
 
