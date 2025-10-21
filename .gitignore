@@ -1,3 +1,4 @@
 filtered_data
 __pycache__
 *.csv
+*.csv#

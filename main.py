@@ -9,7 +9,8 @@ from core_filters import (
     filter_url_only_content,
     filter_edited_content,
     eliminate_duplicates,
-    filter_automoderator_and_bots
+    filter_automoderator_and_bots,
+    replace_urls_with_token
 )
 from language_filter import (
     filter_non_english,
@@ -29,6 +30,10 @@ def main():
                         help="List of idioms to filter out (e.g., 'lol' 'rofl').")
     parser.add_argument("--filter_edited", action="store_true",
                         help="Only keep edited comments (filters out non-edited content).")
+    parser.add_argument("--filter_language", action="store_true",
+                        help="Enable language filtering.")
+    parser.add_argument("--target_language", type=str, default="en",
+                        help="Target language code (e.g., 'en' for English, 'es' for Spanish). Default is 'en'.")
     parser.add_argument("--anonymize", action="store_true", 
                         help="Anonymize data by hashing usernames and removing PII.")
 
@@ -63,6 +68,12 @@ def main():
 
     # 4. Remove posts containing only url links
     submissions_df = filter_url_only_content(submissions_df, text_column='selftext')
+    
+    # 4a. Replace remaining URLs with tokens in both selftext and title
+    if 'selftext' in submissions_df.columns:
+        submissions_df['selftext'] = submissions_df['selftext'].fillna('').apply(replace_urls_with_token)
+    if 'title' in submissions_df.columns:
+        submissions_df['title'] = submissions_df['title'].fillna('').apply(replace_urls_with_token)
 
     # 5. Eliminate duplicates
     submissions_df = eliminate_duplicates(submissions_df, subset_cols=['id'])
@@ -70,9 +81,14 @@ def main():
     # 6. Eliminate comments from automoderators and bots
     submissions_df = filter_automoderator_and_bots(submissions_df, author_column='author')
 
-    # 7. Only English text
-    submissions_df = filter_non_english(submissions_df, text_column='selftext')
-    submissions_df = filter_non_english(submissions_df, text_column='title')
+    # 7. Min word count for selftext (using the same minimum as comments)
+    submissions_df = filter_min_word_count(submissions_df, min_n_words=args.min_comment_words, text_column='selftext')
+
+    # 8. Language filtering (if enabled)
+    if args.filter_language:
+        print(f"Filtering submissions for {args.target_language} language content...")
+        submissions_df = filter_non_english(submissions_df, text_column='selftext', target_lang=args.target_language)
+        submissions_df = filter_non_english(submissions_df, text_column='title', target_lang=args.target_language)
 
     print(f"Final submissions count after filtering: {len(submissions_df)}")
 
@@ -86,6 +102,10 @@ def main():
 
     # 3. Remove comments containing only url links
     comments_df = filter_url_only_content(comments_df, text_column='body')
+    
+    # 3a. Replace remaining URLs with tokens in comment body
+    if 'body' in comments_df.columns:
+        comments_df['body'] = comments_df['body'].fillna('').apply(replace_urls_with_token)
 
     # 4. Edited comments to show content that the users had full attention on writing it
     if args.filter_edited:
@@ -103,8 +123,10 @@ def main():
     # 8. Min word count for comments
     comments_df = filter_min_word_count(comments_df, args.min_comment_words)
 
-    # 9. Only English text
-    comments_df = filter_non_english(comments_df, text_column='body')
+    # 9. Language filtering (if enabled)
+    if args.filter_language:
+        print(f"Filtering comments for {args.target_language} language content...")
+        comments_df = filter_non_english(comments_df, text_column='body', target_lang=args.target_language)
 
     print(f"Final comments count after filtering: {len(comments_df)}")
 
