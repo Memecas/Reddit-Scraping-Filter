@@ -30,7 +30,7 @@ pip install pandas langdetect tqdm
 - Python 3.9+
 - pandas >= 2.0.0
 - langdetect >= 1.0.9
-- tqdm >= 4.0.0
+- tqdm >= 4.0.0 (for progress bar, it can take a big while...)
 
 ## Usage
 
