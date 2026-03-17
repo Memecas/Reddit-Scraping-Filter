@@ -1,14 +1,14 @@
 # Reddit Data Filter Pipeline
 
-A modular Python script for cleaning and filtering Reddit subreddit data dumps from Pushshift to extract high-quality content.
+A modular Python pipeline for cleaning and filtering Reddit subreddit CSV dumps to extract higher-quality text data.
 
 ## Features
 
 - **Score filtering** - Remove low-quality posts/comments below a minimum score threshold
 - **Content quality filters** - Remove URL-only content, bot/automoderator posts, and deleted/removed content
-- **Language detection** - Keep only English content using language detection
+- **Optional language detection** - Filter by target language (default: English) using language detection
 - **Duplicate removal** - Eliminate duplicate entries
-- **Word count filtering** - Enforce minimum word count for comments
+- **Word count filtering** - Enforce minimum word count for comments and submission selftext
 - **Optional edited content filtering** - Optionally keep only edited comments (indicating thoughtful content)
 - **Idiom filtering** - Remove specific idioms/phrases
 - **Media handling** - Clean media posts while preserving text content
@@ -18,25 +18,26 @@ A modular Python script for cleaning and filtering Reddit subreddit data dumps f
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/reddit-filter-pipeline.git
-cd reddit-filter-pipeline
+git clone https://github.com/Memecas/Reddit-Scraping-Filter.git
+cd Reddit-Scraping-Filter
 
 # Install dependencies
-pip install -r requirements.txt
+pip install pandas langdetect tqdm
 ```
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
 - pandas >= 2.0.0
 - langdetect >= 1.0.9
+- tqdm >= 4.0.0
 
 ## Usage
 
 ### Basic Usage
 
 ```bash
-python main.py \
+python script/main.py \
   --comments_file path/to/comments.csv \
   --submissions_file path/to/submissions.csv
 ```
@@ -44,13 +45,15 @@ python main.py \
 ### Advanced Options
 
 ```bash
-python main.py \
+python script/main.py \
   --comments_file data/reddit_comments.csv \
   --submissions_file data/reddit_submissions.csv \
   --output_dir ./filtered_output \
   --min_score 5 \
   --min_comment_words 20 \
   --filter_edited \
+  --filter_language \
+  --target_language en \
   --idioms_to_filter "lol" "rofl" "lmao" \
   --anonymize
 ```
@@ -66,6 +69,8 @@ python main.py \
 | `--min_comment_words` | int | `10` | Minimum word count for comments |
 | `--idioms_to_filter` | list | `[]` | List of idioms/phrases to filter out |
 | `--filter_edited` | flag | `False` | Only keep edited comments |
+| `--filter_language` | flag | `False` | Enable language filtering |
+| `--target_language` | string | `en` | Target language code used by language filtering |
 | `--anonymize` | flag | `False` | Anonymize usernames and remove PII |
 
 ## Input CSV Columns
@@ -101,7 +106,9 @@ python main.py \
 4. Remove URL-only posts
 5. Eliminate duplicates
 6. Remove bots/automoderators
-7. English language filter (title + selftext)
+7. Minimum word count on `selftext`
+8. Optional: Language filter on `selftext`
+9. Optional: Language filter on `title`
 
 ### Comments Filter Order
 1. Remove removed/deleted comments
@@ -112,7 +119,7 @@ python main.py \
 6. Remove bots/automoderators
 7. Idiom filtering
 8. Minimum word count
-9. English language filter
+9. Optional: Language filter
 
 ## Output
 
@@ -125,14 +132,14 @@ Files are saved to the specified output directory with the original filename pre
 ## Module Structure
 
 ```
-.
+script/
 ├── main.py                  # Main script and pipeline orchestration
 ├── core_filters.py          # Core filtering functions
 ├── language_filter.py       # Language detection and word count filters
 ├── media_handler.py         # Media post cleaning
 ├── data_loader.py           # CSV loading utilities
 ├── anonymization.py         # Username hashing and PII removal
-├── requirements.txt         # Python dependencies
+├── test_core_filters.py     # Unit tests for core filters
 └── README.md
 ```
 
@@ -150,7 +157,7 @@ See `core_filters.py` for the complete list.
 
 ### Filter with higher quality threshold
 ```bash
-python main.py \
+python script/main.py \
   --comments_file comments.csv \
   --submissions_file submissions.csv \
   --min_score 10 \
@@ -159,7 +166,7 @@ python main.py \
 
 ### Process with anonymization
 ```bash
-python main.py \
+python script/main.py \
   --comments_file comments.csv \
   --submissions_file submissions.csv \
   --anonymize
@@ -167,7 +174,7 @@ python main.py \
 
 ### Only keep edited comments
 ```bash
-python main.py \
+python script/main.py \
   --comments_file comments.csv \
   --submissions_file submissions.csv \
   --filter_edited
@@ -175,7 +182,7 @@ python main.py \
 
 ### Filter out specific phrases
 ```bash
-python main.py \
+python script/main.py \
   --comments_file comments.csv \
   --submissions_file submissions.csv \
   --idioms_to_filter "tbh" "imo" "imho"
