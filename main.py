@@ -1,6 +1,7 @@
 import pandas as pd
 import argparse
 import os
+from tqdm import tqdm
 
 from data_loader import load_comments_from_csv, load_submissions_from_csv
 from media_handler import clean_media_posts
@@ -53,82 +54,101 @@ def main():
     print("Initial submissions count:", len(submissions_df))
 
     print("\nApplying filters to submissions...")
+    sub_steps = 7 + (2 if args.filter_language else 0)
+    sub_pbar = tqdm(total=sub_steps, desc="Submissions", unit="step")
+
     # 1. Clean image and video posts (maintain text)
     submissions_df = clean_media_posts(submissions_df)
-    print("Submissions after media cleaning:", len(submissions_df))
+    sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
     # 2. Remove removed or deleted posts
     if 'removed_by_category' in submissions_df.columns:
         submissions_df = submissions_df[submissions_df['removed_by_category'].isna()].copy()
     if 'selftext' in submissions_df.columns:
         submissions_df = submissions_df[~submissions_df['selftext'].isin(['[removed]', '[deleted]'])].copy()
+    sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
     # 3. At least score of 2
     submissions_df = filter_by_score(submissions_df, args.min_score)
+    sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
-    # 4. Remove posts containing only url links
+    # 4. Remove posts containing only url links + replace URLs with tokens
     submissions_df = filter_url_only_content(submissions_df, text_column='selftext')
-    
-    # 4a. Replace remaining URLs with tokens in both selftext and title
     if 'selftext' in submissions_df.columns:
         submissions_df['selftext'] = submissions_df['selftext'].fillna('').apply(replace_urls_with_token)
     if 'title' in submissions_df.columns:
         submissions_df['title'] = submissions_df['title'].fillna('').apply(replace_urls_with_token)
+    sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
     # 5. Eliminate duplicates
     submissions_df = eliminate_duplicates(submissions_df, subset_cols=['id'])
+    sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
-    # 6. Eliminate comments from automoderators and bots
+    # 6. Eliminate automoderators and bots
     submissions_df = filter_automoderator_and_bots(submissions_df, author_column='author')
+    sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
-    # 7. Min word count for selftext (using the same minimum as comments)
-    submissions_df = filter_min_word_count(submissions_df, min_n_words=args.min_comment_words, text_column='selftext')
+    # 7. Min word count for selftext
+    submissions_df = filter_min_word_count(submissions_df, min_words=args.min_comment_words, text_column='selftext')
+    sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
     # 8. Language filtering (if enabled)
     if args.filter_language:
-        print(f"Filtering submissions for {args.target_language} language content...")
         submissions_df = filter_non_english(submissions_df, text_column='selftext', target_lang=args.target_language)
+        sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
         submissions_df = filter_non_english(submissions_df, text_column='title', target_lang=args.target_language)
+        sub_pbar.set_postfix(count=len(submissions_df)); sub_pbar.update(1)
 
-    print(f"Final submissions count after filtering: {len(submissions_df)}")
+    sub_pbar.close()
+    print(f"Final submissions count: {len(submissions_df)}")
 
     print("\nApplying filters to comments...")
+    com_steps = 7 + (1 if args.filter_edited else 0) + (1 if args.filter_language else 0)
+    com_pbar = tqdm(total=com_steps, desc="Comments", unit="step")
+
     # 1. Remove removed or deleted comments
     if 'body' in comments_df.columns:
         comments_df = comments_df[~comments_df['body'].isin(['[removed]', '[deleted]'])].copy()
+    com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
     # 2. At least score of 2
     comments_df = filter_by_score(comments_df, args.min_score)
+    com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
-    # 3. Remove comments containing only url links
+    # 3. Remove URL-only comments + replace URLs with tokens
     comments_df = filter_url_only_content(comments_df, text_column='body')
-    
-    # 3a. Replace remaining URLs with tokens in comment body
     if 'body' in comments_df.columns:
         comments_df['body'] = comments_df['body'].fillna('').apply(replace_urls_with_token)
+    com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
-    # 4. Edited comments to show content that the users had full attention on writing it
+    # 4. Edited comments filter (if enabled)
     if args.filter_edited:
         comments_df = filter_edited_content(comments_df)
+        com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
     # 5. Eliminate duplicates
     comments_df = eliminate_duplicates(comments_df, subset_cols=['id'])
+    com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
-    # 6. Eliminate comments from automoderators and bots
+    # 6. Eliminate automoderators and bots
     comments_df = filter_automoderator_and_bots(comments_df, author_column='author')
+    com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
     # 7. Eliminate other idioms
     comments_df = filter_idioms(comments_df, text_column='body', idioms_list=args.idioms_to_filter)
+    com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
     # 8. Min word count for comments
     comments_df = filter_min_word_count(comments_df, args.min_comment_words)
+    com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
     # 9. Language filtering (if enabled)
     if args.filter_language:
-        print(f"Filtering comments for {args.target_language} language content...")
         comments_df = filter_non_english(comments_df, text_column='body', target_lang=args.target_language)
+        com_pbar.set_postfix(count=len(comments_df)); com_pbar.update(1)
 
-    print(f"Final comments count after filtering: {len(comments_df)}")
+    com_pbar.close()
+    print(f"Final comments count: {len(comments_df)}")
 
     # Anonymization step (if requested)
     if args.anonymize:

@@ -138,17 +138,10 @@ def replace_urls_with_token(text: str, token: str = '<URL>') -> str:
         This function should be used AFTER url-only filtering to preserve meaningful text
         while standardizing any remaining URLs within the content.
     """
-    # Comprehensive URL pattern that matches:
-    # - http/https URLs
-    # - www. URLs
-    # - bare domain.tld URLs
-    # - URLs with paths, query parameters, and fragments
     url_pattern = re.compile(
-        r'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»""'']))',
+        r'https?://\S+|www\.\S+',
         re.IGNORECASE
     )
-    
-    # Replace all matches with the token
     return url_pattern.sub(token, text)
 
 def filter_automoderator_and_bots(df: pd.DataFrame, author_column: str = 'author') -> pd.DataFrame:

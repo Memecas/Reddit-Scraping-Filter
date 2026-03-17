@@ -6,32 +6,33 @@ from langdetect import detect, DetectorFactory
 # Ensure reproducibility of language detection
 DetectorFactory.seed = 0
 
-def filter_non_english(df: pd.DataFrame, text_column: str) -> pd.DataFrame:
+def filter_non_english(df: pd.DataFrame, text_column: str, target_lang: str = 'en') -> pd.DataFrame:
     """
-    Filters a DataFrame to retain only entries where the specified text_column is detected as English.
+    Filters a DataFrame to retain only entries where the specified text_column is detected as the target language.
 
     Preconditions:
     - `df` must be a Pandas DataFrame containing the `text_column`.
+    - `target_lang` must be a valid language code (e.g., 'en', 'es', 'fr').
 
     Postconditions:
-    - Returns a DataFrame containing only entries where the text is detected as English.
+    - Returns a DataFrame containing only entries where the text matches the target language.
 
     Invariants:
     - The original DataFrame is not modified.
     """
     if text_column not in df.columns:
-        print(f"Warning: \'{text_column}\' column not found. Skipping non-English filtering.")
+        print(f"Warning: \'{text_column}\' column not found. Skipping language filtering.")
         return df
 
-    def is_english(text):
+    def is_target_lang(text):
         if pd.isna(text) or not text.strip():
             return False
         try:
-            return detect(text) == 'en'
+            return detect(text) == target_lang
         except:
             return False
 
-    mask = df[text_column].apply(is_english)
+    mask = df[text_column].apply(is_target_lang)
     return df[mask].copy()
 
 def filter_idioms(df: pd.DataFrame, text_column: str, idioms_list: list[str]) -> pd.DataFrame:
@@ -61,28 +62,26 @@ def filter_idioms(df: pd.DataFrame, text_column: str, idioms_list: list[str]) ->
     mask = df[text_column].fillna("").apply(lambda x: bool(idioms_pattern.search(x)))
     return df[~mask].copy()
 
-def filter_min_word_count(comments_df: pd.DataFrame, min_words: int = 10) -> pd.DataFrame:
+def filter_min_word_count(comments_df: pd.DataFrame, min_words: int = 10, text_column: str = 'body') -> pd.DataFrame:
     """
-    Filters comments DataFrame to retain only comments with at least `min_words`.
-    This applies only to comments, as clarified by the user.
+    Filters DataFrame to retain only entries with at least `min_words`.
 
     Preconditions:
-    - `comments_df` must be a Pandas DataFrame containing a 'body' column.
+    - `comments_df` must be a Pandas DataFrame containing the specified text_column.
     - `min_words` must be an integer.
 
     Postconditions:
-    - Returns a DataFrame containing only comments with word count >= `min_words`.
+    - Returns a DataFrame containing only entries with word count >= `min_words`.
 
     Invariants:
     - The original DataFrame is not modified.
     """
-    if 'body' not in comments_df.columns:
-        print("Warning: 'body' column not found. Skipping min word count filtering.")
+    if text_column not in comments_df.columns:
+        print(f"Warning: '{text_column}' column not found. Skipping min word count filtering.")
         return comments_df
 
     # Count words by splitting on whitespace
-    comments_df['word_count'] = comments_df['body'].fillna('').apply(lambda x: len(x.split()))
-    filtered_df = comments_df[comments_df['word_count'] >= min_words].copy()
-    return filtered_df.drop(columns=['word_count'])
+    word_counts = comments_df[text_column].fillna('').apply(lambda x: len(x.split()))
+    return comments_df[word_counts >= min_words].copy()
 
 
